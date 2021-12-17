@@ -19,6 +19,7 @@ dependencies {
 	optional("jakarta.validation:jakarta.validation-api")
 	optional("jakarta.xml.bind:jakarta.xml.bind-api")
 	optional("io.reactivex.rxjava3:rxjava")
+	optional("io.micrometer:micrometer-core")
 	optional("io.netty:netty-buffer")
 	optional("io.netty:netty-handler")
 	optional("io.netty:netty-codec-http") // Until Netty4ClientHttpRequest is removed
