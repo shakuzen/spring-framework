@@ -6,6 +6,7 @@
 package org.springframework.http.server.observation;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -53,6 +54,10 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 
 	private static final Set<String> HTTP_METHODS = Stream.of(HttpMethod.values()).map(HttpMethod::name).collect(Collectors.toUnmodifiableSet());
 
+	private static final Map<String, String> CONTEXTUAL_NAMES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(HttpMethod::name,
+					method -> "http " + method.name().toLowerCase(Locale.ROOT)));
+
 
 	private final String name;
 
@@ -81,11 +86,15 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 	@Override
 	public @Nullable String getContextualName(ServerRequestObservationContext context) {
 		if (context.getCarrier() != null) {
-			String httpMethod = context.getCarrier().getMethod().toLowerCase(Locale.ROOT);
-			if (context.getPathPattern() != null) {
-				return "http " + httpMethod + " " + context.getPathPattern();
+			String method = context.getCarrier().getMethod();
+			String contextualName = CONTEXTUAL_NAMES.get(method);
+			if (contextualName == null) {
+				contextualName = "http " + method.toLowerCase(Locale.ROOT);
 			}
-			return "http " + httpMethod;
+			if (context.getPathPattern() != null) {
+				return contextualName + " " + context.getPathPattern();
+			}
+			return contextualName;
 		}
 		return null;
 	}

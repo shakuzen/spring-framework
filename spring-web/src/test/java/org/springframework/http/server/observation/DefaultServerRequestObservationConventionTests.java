@@ -9,6 +9,7 @@ import io.micrometer.common.KeyValue;
 import io.micrometer.observation.Observation;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
 import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 
@@ -43,6 +44,22 @@ class DefaultServerRequestObservationConventionTests {
 	void contextualNameShouldUsePathPatternWhenAvailable() {
 		this.context.setPathPattern("/test/{name}");
 		assertThat(convention.getContextualName(this.context)).isEqualTo("http get /test/{name}");
+	}
+
+	@Test
+	void contextualNameShouldLowerCaseStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			this.request.setMethod(method.name());
+			assertThat(convention.getContextualName(this.context)).isEqualTo("http " + method.name().toLowerCase());
+		}
+	}
+
+	@Test
+	void contextualNameShouldLowerCaseNonStandardHttpMethod() {
+		this.request.setMethod("SPRING");
+		assertThat(convention.getContextualName(this.context)).isEqualTo("http spring");
+		this.context.setPathPattern("/test/{name}");
+		assertThat(convention.getContextualName(this.context)).isEqualTo("http spring /test/{name}");
 	}
 
 	@Test

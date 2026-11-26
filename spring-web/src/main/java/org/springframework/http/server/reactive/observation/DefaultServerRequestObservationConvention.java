@@ -6,7 +6,11 @@
 package org.springframework.http.server.reactive.observation;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
@@ -51,6 +55,10 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 
 	private static final Set<HttpMethod> HTTP_METHODS = Set.of(HttpMethod.values());
 
+	private static final Map<HttpMethod, String> CONTEXTUAL_NAMES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(Function.identity(),
+					method -> "http " + method.name().toLowerCase(Locale.ROOT)));
+
 
 	private final String name;
 
@@ -79,11 +87,15 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 	@Override
 	public @Nullable String getContextualName(ServerRequestObservationContext context) {
 		if (context.getCarrier() != null) {
-			String httpMethod = context.getCarrier().getMethod().name().toLowerCase(Locale.ROOT);
-			if (context.getPathPattern() != null) {
-				return "http " + httpMethod + " " + context.getPathPattern();
+			HttpMethod method = context.getCarrier().getMethod();
+			String contextualName = CONTEXTUAL_NAMES.get(method);
+			if (contextualName == null) {
+				contextualName = "http " + method.name().toLowerCase(Locale.ROOT);
 			}
-			return "http " + httpMethod;
+			if (context.getPathPattern() != null) {
+				return contextualName + " " + context.getPathPattern();
+			}
+			return contextualName;
 		}
 		return null;
 	}

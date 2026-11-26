@@ -47,6 +47,24 @@ class DefaultServerRequestObservationConventionTests {
 	}
 
 	@Test
+	void contextualNameShouldLowerCaseStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(method, "/test/resource"));
+			ServerRequestObservationContext context = new ServerRequestObservationContext(exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());
+			assertThat(convention.getContextualName(context)).isEqualTo("http " + method.name().toLowerCase());
+		}
+	}
+
+	@Test
+	void contextualNameShouldLowerCaseNonStandardHttpMethod() {
+		ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(HttpMethod.valueOf("SPRING"), "/test/resource"));
+		ServerRequestObservationContext context = new ServerRequestObservationContext(exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());
+		assertThat(convention.getContextualName(context)).isEqualTo("http spring");
+		context.setPathPattern("/test/{name}");
+		assertThat(convention.getContextualName(context)).isEqualTo("http spring /test/{name}");
+	}
+
+	@Test
 	void supportsOnlyHttpRequestsObservationContext() {
 		ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/test/resource"));
 		ServerRequestObservationContext context = new ServerRequestObservationContext(exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());

@@ -49,6 +49,21 @@ class DefaultClientRequestObservationConventionTests {
 	}
 
 	@Test
+	void contextualNameShouldLowerCaseStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			ClientRequestObservationContext context = new ClientRequestObservationContext(new MockClientHttpRequest(method, "/test"));
+			assertThat(this.observationConvention.getContextualName(context)).isEqualTo("http " + method.name().toLowerCase());
+		}
+	}
+
+	@Test
+	void contextualNameShouldLowerCaseNonStandardHttpMethod() {
+		ClientRequestObservationContext context = new ClientRequestObservationContext(
+				new MockClientHttpRequest(HttpMethod.valueOf("SPRING"), "/test"));
+		assertThat(this.observationConvention.getContextualName(context)).isEqualTo("http spring");
+	}
+
+	@Test
 	void supportsOnlyClientHttpObservationContext() {
 		ClientRequestObservationContext context = new ClientRequestObservationContext(this.request);
 		assertThat(this.observationConvention.supportsContext(context)).isTrue();

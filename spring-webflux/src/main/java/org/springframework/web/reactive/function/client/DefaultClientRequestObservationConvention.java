@@ -7,8 +7,12 @@ package org.springframework.web.reactive.function.client;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
@@ -58,6 +62,10 @@ public class DefaultClientRequestObservationConvention implements ClientRequestO
 
 	private static final Set<HttpMethod> HTTP_METHODS = Set.of(HttpMethod.values());
 
+	private static final Map<HttpMethod, String> CONTEXTUAL_NAMES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(Function.identity(),
+					method -> "http " + method.name().toLowerCase(Locale.ROOT)));
+
 
 	private final String name;
 
@@ -85,7 +93,12 @@ public class DefaultClientRequestObservationConvention implements ClientRequestO
 	@Override
 	public @Nullable String getContextualName(ClientRequestObservationContext context) {
 		ClientRequest request = context.getRequest();
-		return (request != null ? "http " + request.method().name().toLowerCase(Locale.ROOT) : null);
+		if (request == null) {
+			return null;
+		}
+		HttpMethod method = request.method();
+		String contextualName = CONTEXTUAL_NAMES.get(method);
+		return (contextualName != null) ? contextualName : "http " + method.name().toLowerCase(Locale.ROOT);
 	}
 
 	@Override
