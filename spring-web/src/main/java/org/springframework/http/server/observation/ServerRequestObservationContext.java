@@ -6,6 +6,7 @@
 package org.springframework.http.server.observation;
 
 import java.util.Collections;
+import java.util.Enumeration;
 
 import io.micrometer.observation.transport.Propagator;
 import io.micrometer.observation.transport.RequestReplyReceiverContext;
@@ -50,7 +51,8 @@ public class ServerRequestObservationContext extends RequestReplyReceiverContext
 
 		@Override
 		public Iterable<String> getAll(HttpServletRequest carrier, String key) {
-			return Collections.list(carrier.getHeaders(key));
+			Enumeration<String> headers = carrier.getHeaders(key);
+			return (headers.hasMoreElements() ? Collections.list(headers) : Collections.emptyList());
 		}
 	}
 

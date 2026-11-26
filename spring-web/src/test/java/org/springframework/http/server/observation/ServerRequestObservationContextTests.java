@@ -32,4 +32,9 @@ class ServerRequestObservationContextTests {
 		assertThat(context.getGetter().getAll(request, "test")).contains("spring", "framework");
 	}
 
+	@Test
+	void shouldGetNoHeaderValuesForMissingHeader() {
+		assertThat(context.getGetter().getAll(request, "test")).isEmpty();
+	}
+
 }
