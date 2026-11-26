@@ -10,9 +10,12 @@ import java.net.URI;
 import io.micrometer.common.KeyValue;
 import io.micrometer.observation.Observation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -121,6 +124,23 @@ class DefaultClientRequestObservationConventionTests {
 				ClientRequest.create(HttpMethod.valueOf("CUSTOM"), URI.create("/test")));
 		assertThat(this.observationConvention.getLowCardinalityKeyValues(context))
 				.contains(KeyValue.of("method", "none"));
+	}
+
+	@Test
+	void methodShouldMatchStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			ClientRequestObservationContext context = createContext(ClientRequest.create(method, URI.create("/test")));
+			assertThat(this.observationConvention.method(context)).isEqualTo(KeyValue.of("method", method.name()));
+		}
+	}
+
+	@ParameterizedTest
+	@CsvSource({"101, INFORMATIONAL", "200, SUCCESS", "302, REDIRECTION", "404, CLIENT_ERROR", "503, SERVER_ERROR", "599, UNKNOWN"})
+	void outcomeShouldMatchStatusSeries(int status, String outcome) {
+		ClientRequestObservationContext context = new ClientRequestObservationContext(
+				ClientRequest.create(HttpMethod.GET, URI.create("/test")));
+		context.setResponse(ClientResponse.create(HttpStatusCode.valueOf(status)).build());
+		assertThat(this.observationConvention.outcome(context)).isEqualTo(KeyValue.of("outcome", outcome));
 	}
 
 	private ClientRequestObservationContext createContext(ClientRequest.Builder request) {

@@ -5,7 +5,8 @@
 
 package org.springframework.http.server.observation;
 
-import java.util.Set;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -55,7 +56,9 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 
 	private static final KeyValue ORIGINAL_METHOD_UNKNOWN = KeyValue.of(HighCardinalityKeyNames.METHOD_ORIGINAL, "UNKNOWN");
 
-	private static final Set<String> HTTP_METHODS = Stream.of(HttpMethod.values()).map(HttpMethod::name).collect(Collectors.toUnmodifiableSet());
+	private static final Map<String, KeyValue> METHOD_KEY_VALUES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(HttpMethod::name,
+					method -> KeyValue.of(LowCardinalityKeyNames.METHOD, method.name())));
 
 
 	@Override
@@ -106,7 +109,8 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 	protected KeyValue method(ServerRequestObservationContext context) {
 		String method = getMethodValue(context);
 		if (method != null) {
-			return KeyValue.of(LowCardinalityKeyNames.METHOD, method);
+			KeyValue keyValue = METHOD_KEY_VALUES.get(method);
+			return (keyValue != null) ? keyValue : KeyValue.of(LowCardinalityKeyNames.METHOD, method);
 		}
 		return METHOD_UNKNOWN;
 	}
@@ -114,7 +118,7 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 	protected @Nullable String getMethodValue(ServerRequestObservationContext context) {
 		if (context.getCarrier() != null) {
 			String httpMethod = context.getCarrier().getMethod();
-			if (HTTP_METHODS.contains(httpMethod)) {
+			if (METHOD_KEY_VALUES.containsKey(httpMethod)) {
 				return httpMethod;
 			}
 		}
@@ -195,12 +199,17 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 
 	static class HttpOutcome {
 
+		// Indexed by HttpStatus.Series ordinal
+		private static final KeyValue[] SERIES_KEY_VALUES = Arrays.stream(HttpStatus.Series.values())
+				.map(series -> KeyValue.of(LowCardinalityKeyNames.OUTCOME, series.name()))
+				.toArray(KeyValue[]::new);
+
 		static KeyValue forStatus(HttpStatusCode statusCode) {
 			if (statusCode.is2xxSuccessful()) {
 				return HTTP_OUTCOME_SUCCESS;
 			}
 			else if (statusCode instanceof HttpStatus status) {
-				return KeyValue.of(LowCardinalityKeyNames.OUTCOME, status.series().name());
+				return SERIES_KEY_VALUES[status.series().ordinal()];
 			}
 			else {
 				return HTTP_OUTCOME_UNKNOWN;

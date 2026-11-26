@@ -8,8 +8,11 @@ package org.springframework.http.server.reactive.observation;
 import io.micrometer.common.KeyValue;
 import io.micrometer.observation.Observation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
 import org.springframework.web.testfixture.server.MockServerWebExchange;
@@ -173,6 +176,26 @@ class DefaultServerRequestObservationConventionTests {
 						KeyValue.of("exception", "none"), KeyValue.of("outcome", "CLIENT_ERROR"));
 		assertThat(this.convention.getHighCardinalityKeyValues(context)).hasSize(1)
 				.contains(KeyValue.of("http.url", "/test"));
+	}
+
+	@Test
+	void methodShouldMatchStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(method, "/test/resource"));
+			ServerRequestObservationContext context = new ServerRequestObservationContext(
+					exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());
+			assertThat(this.convention.method(context)).isEqualTo(KeyValue.of("method", method.name()));
+		}
+	}
+
+	@ParameterizedTest
+	@CsvSource({"101, INFORMATIONAL", "200, SUCCESS", "302, REDIRECTION", "404, CLIENT_ERROR", "503, SERVER_ERROR", "599, UNKNOWN"})
+	void outcomeShouldMatchStatusSeries(int status, String outcome) {
+		ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/test/resource"));
+		exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(status));
+		ServerRequestObservationContext context = new ServerRequestObservationContext(
+				exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());
+		assertThat(this.convention.outcome(context)).isEqualTo(KeyValue.of("outcome", outcome));
 	}
 
 }

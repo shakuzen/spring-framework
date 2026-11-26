@@ -8,7 +8,10 @@ package org.springframework.http.server.observation;
 import io.micrometer.common.KeyValue;
 import io.micrometer.observation.Observation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
 import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 
@@ -136,6 +139,21 @@ class DefaultServerRequestObservationConventionTests {
 						KeyValue.of("exception", "none"), KeyValue.of("outcome", "UNKNOWN"));
 		assertThat(this.convention.getHighCardinalityKeyValues(this.context)).hasSize(1)
 				.contains(KeyValue.of("http.url", "/test/invalidStatus"));
+	}
+
+	@Test
+	void methodShouldMatchStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			this.request.setMethod(method.name());
+			assertThat(this.convention.method(this.context)).isEqualTo(KeyValue.of("method", method.name()));
+		}
+	}
+
+	@ParameterizedTest
+	@CsvSource({"101, INFORMATIONAL", "200, SUCCESS", "302, REDIRECTION", "404, CLIENT_ERROR", "503, SERVER_ERROR", "599, UNKNOWN"})
+	void outcomeShouldMatchStatusSeries(int status, String outcome) {
+		this.response.setStatus(status);
+		assertThat(this.convention.outcome(this.context)).isEqualTo(KeyValue.of("outcome", outcome));
 	}
 
 }

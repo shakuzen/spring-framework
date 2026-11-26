@@ -5,7 +5,7 @@
 
 package org.springframework.http.server.reactive.observation;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -42,6 +42,15 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 
 	private static final KeyValue HTTP_OUTCOME_UNKNOWN = KeyValue.of(LowCardinalityKeyNames.OUTCOME, "UNKNOWN");
 
+	private static final KeyValue HTTP_OUTCOME_REDIRECTION = KeyValue.of(LowCardinalityKeyNames.OUTCOME,
+			HttpStatus.Series.REDIRECTION.name());
+
+	private static final KeyValue HTTP_OUTCOME_CLIENT_ERROR = KeyValue.of(LowCardinalityKeyNames.OUTCOME,
+			HttpStatus.Series.CLIENT_ERROR.name());
+
+	private static final KeyValue HTTP_OUTCOME_SERVER_ERROR = KeyValue.of(LowCardinalityKeyNames.OUTCOME,
+			HttpStatus.Series.SERVER_ERROR.name());
+
 	private static final KeyValue ROUTE_UNKNOWN = KeyValue.of(LowCardinalityKeyNames.ROUTE, "UNKNOWN");
 
 	private static final KeyValue ROUTE_ROOT = KeyValue.of(LowCardinalityKeyNames.ROUTE, "root");
@@ -56,7 +65,9 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 
 	private static final KeyValue ORIGINAL_METHOD_UNKNOWN = KeyValue.of(HighCardinalityKeyNames.METHOD_ORIGINAL, "UNKNOWN");
 
-	private static final Set<String> HTTP_METHODS = Stream.of(HttpMethod.values()).map(HttpMethod::name).collect(Collectors.toUnmodifiableSet());
+	private static final Map<String, KeyValue> METHOD_KEY_VALUES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(HttpMethod::name,
+					method -> KeyValue.of(LowCardinalityKeyNames.METHOD, method.name())));
 
 
 	@Override
@@ -107,7 +118,8 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 	protected KeyValue method(ServerRequestObservationContext context) {
 		String method = getMethodValue(context);
 		if (method != null) {
-			return KeyValue.of(LowCardinalityKeyNames.METHOD, method);
+			KeyValue keyValue = METHOD_KEY_VALUES.get(method);
+			return (keyValue != null) ? keyValue : KeyValue.of(LowCardinalityKeyNames.METHOD, method);
 		}
 		return METHOD_UNKNOWN;
 	}
@@ -115,7 +127,7 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 	protected @Nullable String getMethodValue(ServerRequestObservationContext context) {
 		if (context.getCarrier() != null) {
 			HttpMethod httpMethod = context.getCarrier().getMethod();
-			if (httpMethod != null && HTTP_METHODS.contains(httpMethod.name())) {
+			if (httpMethod != null && METHOD_KEY_VALUES.containsKey(httpMethod.name())) {
 				return httpMethod.name();
 			}
 		}
@@ -211,13 +223,13 @@ public class OpenTelemetryServerRequestObservationConvention implements ServerRe
 				return HTTP_OUTCOME_SUCCESS;
 			}
 			else if (statusCode.is3xxRedirection()) {
-				return KeyValue.of(LowCardinalityKeyNames.OUTCOME, HttpStatus.Series.REDIRECTION.name());
+				return HTTP_OUTCOME_REDIRECTION;
 			}
 			else if (statusCode.is4xxClientError()) {
-				return KeyValue.of(LowCardinalityKeyNames.OUTCOME, HttpStatus.Series.CLIENT_ERROR.name());
+				return HTTP_OUTCOME_CLIENT_ERROR;
 			}
 			else if (statusCode.is5xxServerError()) {
-				return KeyValue.of(LowCardinalityKeyNames.OUTCOME, HttpStatus.Series.SERVER_ERROR.name());
+				return HTTP_OUTCOME_SERVER_ERROR;
 			}
 			else {
 				return HTTP_OUTCOME_UNKNOWN;

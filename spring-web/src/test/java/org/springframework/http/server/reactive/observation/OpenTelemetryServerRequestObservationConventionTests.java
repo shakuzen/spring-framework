@@ -8,8 +8,11 @@ package org.springframework.http.server.reactive.observation;
 import io.micrometer.common.KeyValue;
 import io.micrometer.observation.Observation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
 import org.springframework.web.testfixture.server.MockServerWebExchange;
@@ -262,6 +265,37 @@ class OpenTelemetryServerRequestObservationConventionTests {
 						KeyValue.of("error.type", "none"), KeyValue.of("outcome", "SUCCESS"), KeyValue.of("url.scheme", "UNKNOWN"));
 		assertThat(this.convention.getHighCardinalityKeyValues(context)).hasSize(2)
 				.contains(KeyValue.of("url.path", "/test/resource"), KeyValue.of("http.request.method_original", "GET"));
+	}
+
+	@Test
+	void methodShouldMatchStandardHttpMethods() {
+		for (HttpMethod method : HttpMethod.values()) {
+			ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(method, "/test/resource"));
+			ServerRequestObservationContext context = new ServerRequestObservationContext(
+					exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());
+			assertThat(this.convention.method(context)).isEqualTo(KeyValue.of("http.request.method", method.name()));
+		}
+	}
+
+	@Test
+	void methodShouldUseOverriddenMethodValue() {
+		OpenTelemetryServerRequestObservationConvention convention = new OpenTelemetryServerRequestObservationConvention() {
+			@Override
+			protected String getMethodValue(ServerRequestObservationContext context) {
+				return "CUSTOM";
+			}
+		};
+		assertThat(convention.method(this.context)).isEqualTo(KeyValue.of("http.request.method", "CUSTOM"));
+	}
+
+	@ParameterizedTest
+	@CsvSource({"101, UNKNOWN", "200, SUCCESS", "302, REDIRECTION", "404, CLIENT_ERROR", "503, SERVER_ERROR", "599, SERVER_ERROR"})
+	void outcomeShouldMatchStatusSeries(int status, String outcome) {
+		ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/test/resource"));
+		exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(status));
+		ServerRequestObservationContext context = new ServerRequestObservationContext(
+				exchange.getRequest(), exchange.getResponse(), exchange.getAttributes());
+		assertThat(this.convention.outcome(context)).isEqualTo(KeyValue.of("outcome", outcome));
 	}
 
 }

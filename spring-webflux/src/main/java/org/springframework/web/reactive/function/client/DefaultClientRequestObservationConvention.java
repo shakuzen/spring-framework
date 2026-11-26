@@ -6,9 +6,13 @@
 package org.springframework.web.reactive.function.client;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
@@ -56,7 +60,9 @@ public class DefaultClientRequestObservationConvention implements ClientRequestO
 
 	private static final KeyValue HTTP_URL_NONE = KeyValue.of(HighCardinalityKeyNames.HTTP_URL, KeyValue.NONE_VALUE);
 
-	private static final Set<HttpMethod> HTTP_METHODS = Set.of(HttpMethod.values());
+	private static final Map<HttpMethod, KeyValue> METHOD_KEY_VALUES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(Function.identity(),
+					method -> KeyValue.of(LowCardinalityKeyNames.METHOD, method.name())));
 
 
 	private final String name;
@@ -112,10 +118,7 @@ public class DefaultClientRequestObservationConvention implements ClientRequestO
 
 	protected KeyValue method(ClientRequestObservationContext context) {
 		if (context.getRequest() != null) {
-			HttpMethod httpMethod = context.getRequest().method();
-			if (HTTP_METHODS.contains(httpMethod)) {
-				return KeyValue.of(LowCardinalityKeyNames.METHOD, httpMethod.name());
-			}
+			return METHOD_KEY_VALUES.getOrDefault(context.getRequest().method(), METHOD_NONE);
 		}
 		return METHOD_NONE;
 	}
@@ -176,12 +179,17 @@ public class DefaultClientRequestObservationConvention implements ClientRequestO
 
 	static class HttpOutcome {
 
+		// Indexed by HttpStatus.Series ordinal
+		private static final KeyValue[] SERIES_KEY_VALUES = Arrays.stream(HttpStatus.Series.values())
+				.map(series -> KeyValue.of(LowCardinalityKeyNames.OUTCOME, series.name()))
+				.toArray(KeyValue[]::new);
+
 		static KeyValue forStatus(HttpStatusCode statusCode) {
 			if (statusCode.is2xxSuccessful()) {
 				return HTTP_OUTCOME_SUCCESS;
 			}
 			else if (statusCode instanceof HttpStatus status) {
-				return KeyValue.of(LowCardinalityKeyNames.OUTCOME, status.series().name());
+				return SERIES_KEY_VALUES[status.series().ordinal()];
 			}
 			else {
 				return HTTP_OUTCOME_UNKNOWN;

@@ -5,8 +5,9 @@
 
 package org.springframework.http.server.observation;
 
+import java.util.Arrays;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,7 +52,9 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 
 	private static final KeyValue HTTP_URL_UNKNOWN = KeyValue.of(HighCardinalityKeyNames.HTTP_URL, "UNKNOWN");
 
-	private static final Set<String> HTTP_METHODS = Stream.of(HttpMethod.values()).map(HttpMethod::name).collect(Collectors.toUnmodifiableSet());
+	private static final Map<String, KeyValue> METHOD_KEY_VALUES = Stream.of(HttpMethod.values())
+			.collect(Collectors.toUnmodifiableMap(HttpMethod::name,
+					method -> KeyValue.of(LowCardinalityKeyNames.METHOD, method.name())));
 
 
 	private final String name;
@@ -104,10 +107,7 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 
 	protected KeyValue method(ServerRequestObservationContext context) {
 		if (context.getCarrier() != null) {
-			String httpMethod = context.getCarrier().getMethod();
-			if (HTTP_METHODS.contains(httpMethod)) {
-				return KeyValue.of(LowCardinalityKeyNames.METHOD, httpMethod);
-			}
+			return METHOD_KEY_VALUES.getOrDefault(context.getCarrier().getMethod(), METHOD_UNKNOWN);
 		}
 		return METHOD_UNKNOWN;
 	}
@@ -175,12 +175,17 @@ public class DefaultServerRequestObservationConvention implements ServerRequestO
 
 	static class HttpOutcome {
 
+		// Indexed by HttpStatus.Series ordinal
+		private static final KeyValue[] SERIES_KEY_VALUES = Arrays.stream(HttpStatus.Series.values())
+				.map(series -> KeyValue.of(LowCardinalityKeyNames.OUTCOME, series.name()))
+				.toArray(KeyValue[]::new);
+
 		static KeyValue forStatus(HttpStatusCode statusCode) {
 			if (statusCode.is2xxSuccessful()) {
 				return HTTP_OUTCOME_SUCCESS;
 			}
 			else if (statusCode instanceof HttpStatus status) {
-				return KeyValue.of(LowCardinalityKeyNames.OUTCOME, status.series().name());
+				return SERIES_KEY_VALUES[status.series().ordinal()];
 			}
 			else {
 				return HTTP_OUTCOME_UNKNOWN;
